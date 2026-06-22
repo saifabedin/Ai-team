@@ -9,6 +9,14 @@ const bcrypt = require("bcryptjs");
 const BRAND = config.defaultBrandId;
 
 async function main() {
+  // Register fixmyleads as a brand in the brand registry
+  await db.query(
+    `insert into ait_brands (brand_id, name, owner_email, plan)
+     values ($1, 'FixMyLeads', 'owner@fixmyleads.in', 'enterprise')
+     on conflict (brand_id) do nothing`,
+    [BRAND]
+  );
+
   // owner user — api_key set to env var or "changeme123" for demo
   const DEMO_API_KEY = process.env.SEED_API_KEY || "changeme123";
   const apiKeyHash = await bcrypt.hash(DEMO_API_KEY, 10);

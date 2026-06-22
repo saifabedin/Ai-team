@@ -22,6 +22,9 @@ app.get("/health", (_req, res) =>
 // whoami (handy for debugging RBAC)
 app.get("/me", (req, res) => res.json({ brandId: req.brandId, user: req.user }));
 
+// team management
+app.use("/api/users", require("./users.cjs"));
+
 // department routes
 app.use("/api/lead-intel", require("../departments/lead-intel/routes.cjs"));
 app.use("/api/sdr", require("../departments/sdr/routes.cjs"));

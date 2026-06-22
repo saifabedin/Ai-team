@@ -4,6 +4,17 @@
 -- in the shared Neon database. Idempotent (IF NOT EXISTS).
 -- ============================================================
 
+-- ---------- Brand registry ----------
+create table if not exists ait_brands (
+  id          bigserial primary key,
+  brand_id    text not null unique,
+  name        text not null,
+  owner_email text not null,
+  plan        text not null default 'free',   -- free|pro|enterprise
+  status      text not null default 'active', -- active|suspended
+  created_at  timestamptz not null default now()
+);
+
 -- ---------- Identity / access ----------
 create table if not exists ait_users (
   id            bigserial primary key,
