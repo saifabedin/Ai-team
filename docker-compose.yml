@@ -1,0 +1,83 @@
+# ECM AI Team — optional containerized deploy.
+# Reuses the live Neon (DATABASE_URL) and host Redis.
+version: "3.8"
+
+services:
+  gateway:
+    build: .
+    command: node gateway/server.cjs
+    env_file: .env
+    environment:
+      REDIS_URL: "redis://redis:6379"
+    ports: ["4100:4100"]
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4100/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build: .
+    command: node workers/index.cjs
+    env_file: .env
+    environment:
+      REDIS_URL: "redis://redis:6379"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  dashboard:
+    build: .
+    command: node dashboard/server.cjs
+    env_file: .env
+    environment:
+      REDIS_URL: "redis://redis:6379"
+    ports: ["127.0.0.1:4101:4101"]
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  control:
+    build: .
+    command: node control/bot.cjs
+    env_file: .env
+    environment:
+      REDIS_URL: "redis://redis:6379"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  autopilot:
+    build: .
+    command: node core/autopilot.cjs
+    env_file: .env
+    environment:
+      REDIS_URL: "redis://redis:6379"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --bind 0.0.0.0 --save ""
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Optional self-hosted voice adapter (LIVE mode). Uncomment when voice_service.py is implemented.
+  # voice:
+  #   build: { context: ., dockerfile: departments/voice/Dockerfile }
+  #   command: python3 departments/voice/voice_service.py
+  #   ports: ["127.0.0.1:4108:4108"]

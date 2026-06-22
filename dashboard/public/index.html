@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FixMyLeads — AI Team Live</title>
+<style>
+  :root { --bg:#0b0e14; --card:#151a23; --line:#222a36; --txt:#e6edf3; --mut:#8b97a7; --acc:#4cc38a; --warn:#e3b341; --err:#f47067; --blue:#539bf5; }
+  * { box-sizing:border-box; } body { margin:0; font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+  h1 { font-size:18px; margin:0; display:flex; align-items:center; gap:10px; } .mut { color:var(--mut); }
+  .wrap { padding:24px; max-width:1240px; margin:0 auto; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; }
+  .agrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .kpi { font-size:26px; font-weight:700; } .kpi.acc { color:var(--acc); }
+  .label { color:var(--mut); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; } td,th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px; }
+  th { color:var(--mut); font-weight:600; }
+  section { margin-top:26px; } h2 { font-size:13px; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; margin:0 0 10px; }
+  .bar { height:8px; background:#0d1117; border-radius:6px; overflow:hidden; } .bar > i { display:block; height:100%; background:var(--acc); }
+  button { background:var(--acc); border:0; color:#04130b; font-weight:600; padding:8px 14px; border-radius:8px; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--txt); border:1px solid var(--line); }
+  input { background:#0d1117; border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:8px 10px; font:inherit; }
+  .pill { display:inline-block; font-size:11px; padding:2px 9px; border-radius:999px; font-weight:600; }
+  .live { background:rgba(76,195,138,.15); color:var(--acc); } .live i { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--acc); margin-right:6px; animation:pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .agent { display:flex; flex-direction:column; gap:8px; }
+  .agent .top { display:flex; align-items:center; gap:10px; }
+  .agent .emoji { font-size:24px; } .agent .nm { font-weight:700; text-transform:capitalize; } .agent .rl { color:var(--mut); font-size:12px; }
+  .agent .does { color:var(--mut); font-size:12px; min-height:32px; }
+  .agent .stats { display:flex; gap:14px; font-size:12px; } .agent .stats b { font-size:16px; display:block; }
+  .state { margin-left:auto; font-size:11px; padding:3px 9px; border-radius:999px; }
+  .state.working { background:rgba(83,155,245,.18); color:var(--blue); }
+  .state.idle { background:rgba(139,151,167,.15); color:var(--mut); }
+  .state.ready { background:rgba(227,179,65,.15); color:var(--warn); }
+  .feed { max-height:340px; overflow:auto; } .feed .row { display:flex; gap:10px; padding:6px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .feed .ag { font-weight:600; text-transform:capitalize; min-width:54px; }
+  .ok { color:var(--acc); } .er { color:var(--err); } .rn { color:var(--blue); }
+  .controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .g-A{color:var(--acc)} .g-B{color:var(--blue)} .g-C{color:var(--warn)} .g-D{color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ FixMyLeads <span class="mut" style="font-weight:400">· AI Team</span></h1>
+  <div class="mut">
+    <span class="pill live"><i></i>24/7 LIVE</span>
+    brand: <b id="brand">fixmyleads</b> · mode: <b id="mode">…</b> · <span id="ts"></span>
+    <button class="ghost" onclick="load()">↻</button>
+  </div>
+</header>
+<div class="wrap">
+
+  <div class="grid" id="kpis"></div>
+
+  <section>
+    <h2>Today</h2><div class="grid" id="today"></div>
+  </section>
+
+  <section>
+    <h2>The AI Team</h2>
+    <div class="agrid" id="agents"></div>
+  </section>
+
+  <section>
+    <h2>Feed leads → AI team takes over</h2>
+    <div class="card controls">
+      <input id="sheetUrl" placeholder="Public Google Sheet / CSV URL" style="flex:1;min-width:240px" />
+      <button onclick="pullSheet()">⬇ Pull sheet</button>
+      <input id="srcQuery" placeholder="or search query e.g. fitness mumbai" style="min-width:200px" />
+      <button class="ghost" onclick="sourceLeads()">🔎 Source leads</button>
+      <span id="ctrlMsg" class="mut"></span>
+    </div>
+  </section>
+
+  <div class="agrid" style="margin-top:14px">
+    <section style="margin:0">
+      <h2>Live Activity</h2>
+      <div class="card feed" id="feed"></div>
+    </section>
+    <section style="margin:0">
+      <h2>Pipeline Funnel</h2>
+      <div class="card"><table id="funnel"></table></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>Recent Leads</h2>
+    <div class="card"><table id="leads"><thead><tr><th>#</th><th>Name</th><th>Company</th><th>Status</th><th>Score</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</div>
+
+<script>
+const API = location.origin;
+const H = { "x-brand-id": "fixmyleads", "content-type": "application/json" };
+const money = n => "₹" + (n||0).toLocaleString("en-IN");
+const ago = t => { if(!t) return "—"; const s=(Date.now()-new Date(t))/1000; return s<60?Math.round(s)+"s":s<3600?Math.round(s/60)+"m":Math.round(s/3600)+"h"; };
+async function get(p){ const r = await fetch(API+p,{headers:H}); return r.json(); }
+async function post(p,b){ const r = await fetch(API+p,{method:"POST",headers:H,body:JSON.stringify(b||{})}); return r.json(); }
+function kpi(label,val,acc){ return `<div class="card"><div class="label">${label}</div><div class="kpi ${acc?'acc':''}">${val}</div></div>`; }
+
+async function load(){
+  document.getElementById("ts").textContent = new Date().toLocaleTimeString();
+  try {
+    const o = await get("/api/dashboard/overview");
+    document.getElementById("kpis").innerHTML =
+      kpi("Revenue (MRR)", money(o.revenue_mrr), true) +
+      kpi("Pipeline Value", money(o.pipeline_value), true) +
+      kpi("Deals Won", o.deals_won) +
+      kpi("Meetings", o.meetings_booked) +
+      kpi("Qualified", o.qualified_leads) +
+      kpi("Total Leads", o.leads_total);
+    const max = Math.max(1, ...o.funnel.map(f=>f.n));
+    document.getElementById("funnel").innerHTML = o.funnel.map(f=>
+      `<tr><td style="width:110px">${f.status}</td><td style="width:46px">${f.n}</td><td><div class="bar"><i style="width:${100*f.n/max}%"></i></div></td></tr>`).join("") || `<tr><td class=mut>No leads yet</td></tr>`;
+
+    const t = await get("/api/dashboard/today");
+    document.getElementById("today").innerHTML =
+      kpi("Leads", t.leads)+kpi("Meetings", t.meetings)+kpi("Messages", t.messages)+kpi("Calls", t.calls);
+
+    const agents = await get("/api/dashboard/agents");
+    document.getElementById("agents").innerHTML = agents.map(a=>`
+      <div class="card agent">
+        <div class="top"><span class="emoji">${a.emoji}</span>
+          <div><div class="nm">${a.agent}</div><div class="rl">${a.role}</div></div>
+          <span class="state ${a.state}">${a.state==='working'?'● working':a.state==='ready'?'ready':'idle'}</span>
+        </div>
+        <div class="does">${a.does}</div>
+        <div class="stats">
+          <div><b>${a.runs}</b><span class="mut">runs</span></div>
+          <div><b class="ok">${a.ok}</b><span class="mut">ok</span></div>
+          <div><b class="er">${a.err}</b><span class="mut">err</span></div>
+          <div><b>${a.avg_ms||0}</b><span class="mut">avg ms</span></div>
+          <div style="margin-left:auto;text-align:right"><span class="mut">${a.last_label?a.last_label+' · ':''}${ago(a.last_at)} ago</span></div>
+        </div>
+      </div>`).join("");
+
+    const feed = await get("/api/dashboard/feed?limit=25");
+    document.getElementById("feed").innerHTML = feed.map(f=>{
+      const c = f.status==='done'?'ok':f.status==='error'?'er':'rn';
+      const ic = f.status==='done'?'✔':f.status==='error'?'✘':'▶';
+      return `<div class="row"><span class="ag">${f.agent}</span><span class="${c}">${ic}</span><span style="flex:1">${f.label||f.department}</span><span class="mut">${f.ms?f.ms+'ms · ':''}${ago(f.started_at)}</span></div>`;
+    }).join("") || `<div class=mut>No activity yet — feed some leads.</div>`;
+
+    const leadsResp = await get("/api/dashboard/leads?limit=12");
+    const leadsArr = Array.isArray(leadsResp) ? leadsResp : (leadsResp.leads || []);
+    document.querySelector("#leads tbody").innerHTML = leadsArr.map(l=>
+      `<tr><td>${l.id}</td><td>${l.full_name||'—'}</td><td>${l.company||'—'}</td><td>${l.status}</td><td>${l.score!=null?`<b class="g-${l.grade}">${l.score} ${l.grade||''}</b>`:'—'}</td><td class=mut>${l.source||'—'}</td></tr>`).join("") || `<tr><td colspan=6 class=mut>No leads yet</td></tr>`;
+  } catch(e){ console.error(e); }
+  // mode from health
+  fetch(API+"/health").then(r=>r.json()).then(h=>{ if(h.mode) document.getElementById("mode").textContent=h.mode; }).catch(()=>{});
+}
+
+async function pullSheet(){
+  const url = document.getElementById("sheetUrl").value.trim();
+  const msg = document.getElementById("ctrlMsg");
+  if(!url){ msg.textContent="paste a sheet/CSV URL"; return; }
+  msg.textContent="⏳ pulling…";
+  const r = await post("/api/lead-intel/pull-sheet", { url });
+  msg.textContent = r.error ? ("⚠️ "+(r.message||r.error)) : `✅ pulled ${r.pulled||0}, ingested ${r.ingested||0}`;
+  load();
+}
+async function sourceLeads(){
+  const query = document.getElementById("srcQuery").value.trim() || "marketing";
+  const msg = document.getElementById("ctrlMsg");
+  msg.textContent="⏳ sourcing…";
+  const r = await post("/api/lead-intel/source", { source:"gmaps", query, limit:5 });
+  msg.textContent = r.error ? ("⚠️ "+(r.message||r.error)) : `✅ sourced ${r.sourced||0} leads`;
+  load();
+}
+
+load(); setInterval(load, 8000);
+</script>
+</body>
+</html>

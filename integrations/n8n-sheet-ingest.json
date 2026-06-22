@@ -1,0 +1,63 @@
+{
+  "name": "FixMyLeads — Sheet → AI Team Ingest",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manualTrigger",
+      "name": "When clicking Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 320]
+    },
+    {
+      "parameters": { "rule": { "interval": [ { "field": "minutes", "minutesInterval": 30 } ] } },
+      "id": "scheduleTrigger",
+      "name": "Every 30 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 480]
+    },
+    {
+      "parameters": {
+        "documentId": { "__rl": true, "mode": "url", "value": "PASTE_YOUR_GOOGLE_SHEET_URL_HERE" },
+        "sheetName": { "__rl": true, "mode": "list", "value": "Sheet1" },
+        "options": {}
+      },
+      "id": "readSheet",
+      "name": "Read Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [480, 400],
+      "notesInFlow": true,
+      "notes": "Connect Google account OR replace with an HTTP Request to a public CSV. Columns can be named freely (name/company/email/phone/website/industry/city)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:4100/api/lead-intel/ingest",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "x-brand-id", "value": "fixmyleads" },
+          { "name": "x-user-email", "value": "owner@fixmyleads.in" },
+          { "name": "Content-Type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"src\": \"n8n-sheet\", \"rows\": $input.all().map(i => i.json) } }}",
+        "options": {}
+      },
+      "id": "postIngest",
+      "name": "POST → AI Team /ingest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 400]
+    }
+  ],
+  "connections": {
+    "When clicking Test": { "main": [ [ { "node": "Read Google Sheet", "type": "main", "index": 0 } ] ] },
+    "Every 30 min": { "main": [ [ { "node": "Read Google Sheet", "type": "main", "index": 0 } ] ] },
+    "Read Google Sheet": { "main": [ [ { "node": "POST → AI Team /ingest", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

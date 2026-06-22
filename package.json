@@ -1,0 +1,38 @@
+{
+  "name": "ecm-ai-team",
+  "version": "1.0.0",
+  "description": "ECM AI Team — Autonomous Revenue System (multi-agent, free-first)",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "migrate": "node db/migrate.cjs",
+    "seed": "node db/seed.cjs",
+    "gateway": "node gateway/server.cjs",
+    "workers": "node workers/index.cjs",
+    "dashboard": "node dashboard/server.cjs",
+    "control": "node control/bot.cjs",
+    "autopilot": "node core/autopilot.cjs",
+    "start": "node gateway/server.cjs",
+    "smoke": "node scripts/smoke.cjs",
+    "test": "node --test tests/",
+    "deploy": "bash scripts/deploy.sh",
+    "set-api-key": "node scripts/set-api-key.cjs"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^5.7.0",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.5.2",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^8.0.11",
+    "pdfkit": "^0.15.0",
+    "pg": "^8.11.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
