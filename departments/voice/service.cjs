@@ -39,9 +39,16 @@ async function callLead(brandId, leadId, purpose = "discovery") {
          values ($1,$2,$3,'booked','phone',$4)`,
         [brandId, leadId, scheduledAt, outcome.summary]
       );
+      await bus.publish({
+        brandId, from: "vox", to: "broadcast",
+        topic: "meeting.booked",
+        payload: { leadId, scheduledAt },
+      });
       await crm.setStatus(brandId, leadId, "meeting");
     } else if (outcome.outcome === "not-interested") {
       await crm.setStatus(brandId, leadId, "lost");
+    } else if (["voicemail", "no-answer", "callback"].includes(outcome.outcome)) {
+      // lead was not reached — don't change status from 'contacted'
     } else {
       await crm.setStatus(brandId, leadId, "engaged");
     }

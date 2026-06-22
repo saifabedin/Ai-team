@@ -41,7 +41,8 @@ router.post("/token", limiter, async (req, res) => {
   }
 
   if (!user?.api_key_hash) {
-    return res.status(401).json({ error: "unauthorized", detail: "No API key set for this user" });
+    await bcrypt.compare("noop", "$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345");
+    return res.status(401).json({ error: "unauthorized", detail: "Invalid credentials" });
   }
 
   const valid = await bcrypt.compare(api_key, user.api_key_hash);

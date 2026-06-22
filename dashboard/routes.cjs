@@ -21,15 +21,15 @@ router.get("/agents", rbac.require("dashboard:read"), async (req, res, next) => 
 });
 
 router.get("/feed", rbac.require("dashboard:read"), async (req, res, next) => {
-  try { res.json(await metrics.feed(req.brandId, +req.query.limit || 25)); } catch (e) { next(e); }
+  try { res.json(await metrics.feed(req.brandId, Math.min(+req.query.limit || 25, 500))); } catch (e) { next(e); }
 });
 
 router.get("/leads", rbac.require("dashboard:read"), async (req, res, next) => {
-  try { res.json(await metrics.recentLeads(req.brandId, +req.query.limit || 12)); } catch (e) { next(e); }
+  try { res.json(await metrics.recentLeads(req.brandId, Math.min(+req.query.limit || 12, 200))); } catch (e) { next(e); }
 });
 
 router.get("/audit", rbac.require("audit:read"), async (req, res, next) => {
-  try { res.json(await audit.recent(req.brandId, +req.query.limit || 100)); } catch (e) { next(e); }
+  try { res.json(await audit.recent(req.brandId, Math.min(+req.query.limit || 100, 1000))); } catch (e) { next(e); }
 });
 
 module.exports = router;

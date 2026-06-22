@@ -4,9 +4,9 @@ const assert = require("node:assert/strict");
 const { sanitize, sanitizeStr } = require("../core/sanitize.cjs");
 
 describe("sanitizeStr", () => {
-  it("truncates to 500 chars", () => {
-    const long = "a".repeat(600);
-    assert.equal(sanitizeStr(long).length, 500);
+  it("truncates to 2000 chars", () => {
+    const long = "a".repeat(2500);
+    assert.equal(sanitizeStr(long).length, 2000);
   });
 
   it("strips prompt injection patterns", () => {

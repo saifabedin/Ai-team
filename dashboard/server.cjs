@@ -5,11 +5,12 @@ const express = require("express");
 const path = require("path");
 const config = require("../core/config.cjs");
 const log = require("../core/logger.cjs").make("dashboard");
-const { attachUser } = require("../gateway/middleware.cjs");
+const { attachUser, auditWrites } = require("../gateway/middleware.cjs");
 
 const app = express();
 app.use(express.json());
 app.use(attachUser);
+app.use(auditWrites);
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/api/dashboard", require("./routes.cjs"));
 // also expose lead-intel here so the dashboard's own controls (source / sheet

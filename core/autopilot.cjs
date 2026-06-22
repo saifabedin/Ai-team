@@ -70,10 +70,11 @@ async function step(brandId) {
   // 5. re-engage cold leads: contacted/engaged, no activity for 30 days, no active enrollment
   const cold = await db.many(
     `select distinct l.id from ait_leads l
-       left join ait_enrollments e on e.lead_id=l.id and e.status='active'
+       left join ait_enrollments e on e.lead_id=l.id
       where l.brand_id=$1
         and l.status in ('contacted','engaged')
         and l.updated_at < now() - interval '30 days'
+        and l.status != 'lost'
         and e.id is null
       order by l.updated_at limit $2`,
     [brandId, BATCH]);
@@ -97,7 +98,7 @@ async function tick() {
     for (const { brand_id } of brands) {
       try {
         const r = await step(brand_id);
-        const touched = r.sheet + r.enriched + r.scored + r.enrolled + r.outreach;
+        const touched = r.sheet + r.enriched + r.scored + r.enrolled + r.outreach + r.reengaged;
         if (touched) log.info(`cycle ${cycle} brand=${brand_id}:`, r);
         else log.debug(`cycle ${cycle} brand=${brand_id}: idle`);
       } catch (e) {

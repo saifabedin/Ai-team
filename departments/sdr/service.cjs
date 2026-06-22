@@ -22,7 +22,9 @@ async function enroll(brandId, leadId, sequenceId) {
   const row = await db.one(
     `insert into ait_enrollments (brand_id, lead_id, sequence_id, current_step, status, next_run_at)
      values ($1,$2,$3,0,'active',now())
-     on conflict (lead_id, sequence_id) do update set status='active', next_run_at=now()
+     on conflict (lead_id, sequence_id) do update
+     set status='active', next_run_at=now()
+     where ait_enrollments.status != 'paused'
      returning *`,
     [brandId, leadId, seq.id]
   );
@@ -53,6 +55,8 @@ async function runStep(brandId, enrollmentId) {
         ? `${msg.body}\n\nBook a quick call: ${bookingLink}`
         : msg.body;
     const to = step.channel === "email" ? lead.email : lead.phone || lead.email;
+    if (!to) throw new Error(`lead #${enr.lead_id} has no ${step.channel === "email" ? "email" : "phone or email"} for ${step.channel} outreach`);
+    if (!channels[step.channel]) throw new Error(`Unknown channel "${step.channel}" in step ${step.step_no}`);
     await channels[step.channel](brandId, lead.id, { to, subject: msg.subject, body: bodyWithLink });
     await crm.logActivity(brandId, lead.id, { type: step.channel, channel: step.channel, subject: msg.subject, body: msg.body });
     await crm.setStatus(brandId, lead.id, "contacted");
@@ -83,9 +87,14 @@ async function handleReply(brandId, leadId, text) {
 
 // Book a meeting — use Cal.com link from config, else fall back to mock.
 async function bookMeeting(brandId, leadId, notes, when) {
-  const scheduledAt = when
-    ? new Date(when).toISOString()
-    : new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString();
+  let scheduledAt;
+  if (when) {
+    const d = new Date(when);
+    if (isNaN(d.getTime())) throw new Error(`invalid 'when' date: ${when}`);
+    scheduledAt = d.toISOString();
+  } else {
+    scheduledAt = new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString();
+  }
   const link = config.bookingLink || `https://meet.google.com/mock-${leadId}`;
   const m = await db.one(
     `insert into ait_meetings (brand_id, lead_id, scheduled_at, status, channel, link, notes)

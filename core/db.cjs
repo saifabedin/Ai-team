@@ -7,8 +7,7 @@ const log = require("./logger.cjs").make("db");
 let pool = null;
 
 if (config.databaseUrl) {
-  // Neon.tech and some hosted Postgres providers require rejectUnauthorized:false.
-  // Set DB_SSL_REJECT_UNAUTHORIZED=true in .env to enforce cert validation.
+  // DEFAULT: cert validation enforced. Set DB_SSL_REJECT_UNAUTHORIZED=false to disable (required for Neon.tech).
   const sslRejectUnauthorized = process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false";
   pool = new Pool({
     connectionString: config.databaseUrl,
@@ -41,6 +40,7 @@ async function many(text, params) {
 }
 
 async function tx(fn) {
+  if (!pool) throw new Error("DB not configured (DATABASE_URL missing)");
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

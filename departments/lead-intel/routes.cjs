@@ -4,6 +4,15 @@ const rbac = require("../../core/rbac.cjs");
 const crm = require("../../core/crm.cjs");
 const svc = require("./service.cjs");
 
+function isSafeUrl(url) {
+  try {
+    const { hostname, protocol } = new URL(url);
+    if (!["http:", "https:"].includes(protocol)) return false;
+    if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|localhost$)/.test(hostname)) return false;
+    return true;
+  } catch { return false; }
+}
+
 // list leads
 router.get("/leads", rbac.require("lead-intel:read"), async (req, res, next) => {
   try {
@@ -13,7 +22,13 @@ router.get("/leads", rbac.require("lead-intel:read"), async (req, res, next) => 
 
 // source new leads
 router.post("/source", rbac.require("lead-intel:write"), async (req, res, next) => {
-  try { res.json(await svc.source(req.brandId, req.body || {})); } catch (e) { next(e); }
+  try {
+    const b = req.body || {};
+    if (b.url && !isSafeUrl(b.url)) {
+      return res.status(400).json({ error: "invalid or disallowed URL" });
+    }
+    res.json(await svc.source(req.brandId, b));
+  } catch (e) { next(e); }
 });
 
 // enrich one
@@ -45,6 +60,9 @@ router.post("/ingest", rbac.require("lead-intel:write"), async (req, res, next) 
 router.post("/pull-sheet", rbac.require("lead-intel:write"), async (req, res, next) => {
   try {
     const b = req.body || {};
+    if (b.url && !isSafeUrl(b.url)) {
+      return res.status(400).json({ error: "invalid or disallowed URL" });
+    }
     res.json(await svc.pullSheet(req.brandId, { url: b.url, src: b.src || "sheet", inline: !!b.inline, limit: +b.limit || 0 }));
   } catch (e) { next(e); }
 });

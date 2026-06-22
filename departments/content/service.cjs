@@ -10,8 +10,11 @@ async function create(brandId, { kind = "social", topic, ...opts }) {
     const data = await agent.create(kind, topic, opts);
     const title = data.title || `${kind} — ${topic}`;
     // body = human-readable text; meta = full structured JSON for querying
-    const bodyText = data.body || data.content || data.caption ||
-      (Array.isArray(data.posts) ? data.posts.map((p) => p.content || p).join("\n\n") : null) ||
+    const bodyText =
+      data.markdown ||
+      data.body || data.content || data.caption ||
+      (Array.isArray(data.posts) ? data.posts.map((p) => [p.hook, p.body, (p.hashtags || []).join(" ")].filter(Boolean).join(" ")).join("\n\n") : null) ||
+      (Array.isArray(data.ads) ? data.ads.map((a) => [a.headline, a.primary_text].filter(Boolean).join(" ")).join("\n\n") : null) ||
       JSON.stringify(data);
     const row = await db.one(
       `insert into ait_content (brand_id, kind, topic, title, body, status, meta)

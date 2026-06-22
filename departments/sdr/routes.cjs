@@ -6,7 +6,7 @@ const svc = require("./service.cjs");
 
 router.get("/enrollments", rbac.require("sdr:read"), async (req, res, next) => {
   try {
-    const limit = +req.query.limit || 50;
+    const limit = Math.min(+req.query.limit || 50, 500);
     const offset = +req.query.offset || 0;
     const status = req.query.status || null;
     const VALID_STATUSES = new Set(['active', 'paused', 'done']);

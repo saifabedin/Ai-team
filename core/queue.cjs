@@ -4,7 +4,7 @@ const { Queue } = require("bullmq");
 const { makeConnection } = require("./redis.cjs");
 
 const QUEUE_NAMES = [
-  "scrape", // lead intelligence sourcing
+  "scrape", // reserved for future use — no worker handler yet; do not remove (referenced by QUEUE_NAMES consumers)
   "enrich", // lead enrichment
   "score", // lead scoring
   "outreach", // SDR email/whatsapp/linkedin

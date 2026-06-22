@@ -51,8 +51,8 @@ async function handle(msg) {
           `*KPIs*\nRevenue: ${money(o.revenue_mrr)}\nPipeline: ${money(o.pipeline_value)}\nLeads: ${o.leads_total} (qualified ${o.qualified_leads})\nMeetings: ${o.meetings_booked}\nWon: ${o.deals_won}`);
       }
       case "/leads": {
-        const leads = await crm.listLeads(BRAND, { limit: 10 });
-        return send(chatId, "*Recent leads*\n" + leads.map((l) => `#${l.id} ${l.full_name || "?"} — ${l.status}`).join("\n"));
+        const result = await crm.listLeads(BRAND, { limit: 10 });
+        return send(chatId, "*Recent leads*\n" + result.leads.map((l) => `#${l.id} ${l.full_name || "?"} — ${l.status}`).join("\n"));
       }
       case "/run": {
         const [src, ...q] = rest;

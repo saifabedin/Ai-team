@@ -6,7 +6,7 @@ const svc = require("./service.cjs");
 
 router.get("/meetings", rbac.require("voice:read"), async (req, res, next) => {
   try {
-    const limit = +req.query.limit || 50;
+    const limit = Math.min(+req.query.limit || 50, 500);
     const offset = +req.query.offset || 0;
     const rows = await db.many(
       `select m.*, l.full_name as lead_name, c.name as company, l.email
