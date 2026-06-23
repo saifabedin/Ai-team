@@ -70,8 +70,8 @@ router.delete("/:id", async (req, res, next) => {
   }
   try {
     const targetId = +req.params.id;
-    // Prevent owner from removing themselves
-    if (req.user?.id && req.user.id === targetId) {
+    // Prevent owner from removing themselves (also guard null id from dev bypass)
+    if (!req.user?.id || req.user.id === targetId) {
       return res.status(400).json({ error: "bad_request", detail: "Cannot remove yourself" });
     }
     const target = await db.one(

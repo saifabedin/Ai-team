@@ -13,8 +13,8 @@ const withTimeout = (p, ms) =>
 
 async function main() {
   console.log("== fast check (LLM:", config.llm.provider, config.llm.model, ") ==");
-  const leads = await crm.listLeads(B, { limit: 1 });
-  if (!leads.length) throw new Error("no seed leads — run npm run seed");
+  const { leads } = await crm.listLeads(B, { limit: 1 });
+  if (!leads || !leads.length) throw new Error("no seed leads — run npm run seed");
   const lead = leads[0];
   console.log("scoring lead #" + lead.id, lead.full_name);
   const res = await withTimeout(leadIntel.score(B, lead.id), 90000);

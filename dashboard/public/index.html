@@ -96,9 +96,10 @@ const API = location.origin;
 const H = { "x-brand-id": "fixmyleads", "content-type": "application/json" };
 const money = n => "₹" + (n||0).toLocaleString("en-IN");
 const ago = t => { if(!t) return "—"; const s=(Date.now()-new Date(t))/1000; return s<60?Math.round(s)+"s":s<3600?Math.round(s/60)+"m":Math.round(s/3600)+"h"; };
+function esc(s){ const d=document.createElement("div"); d.textContent=String(s||""); return d.innerHTML; }
 async function get(p){ const r = await fetch(API+p,{headers:H}); return r.json(); }
 async function post(p,b){ const r = await fetch(API+p,{method:"POST",headers:H,body:JSON.stringify(b||{})}); return r.json(); }
-function kpi(label,val,acc){ return `<div class="card"><div class="label">${label}</div><div class="kpi ${acc?'acc':''}">${val}</div></div>`; }
+function kpi(label,val,acc){ return `<div class="card"><div class="label">${esc(label)}</div><div class="kpi ${acc?'acc':''}">${val}</div></div>`; }
 
 async function load(){
   document.getElementById("ts").textContent = new Date().toLocaleTimeString();
@@ -113,7 +114,7 @@ async function load(){
       kpi("Total Leads", o.leads_total);
     const max = Math.max(1, ...o.funnel.map(f=>f.n));
     document.getElementById("funnel").innerHTML = o.funnel.map(f=>
-      `<tr><td style="width:110px">${f.status}</td><td style="width:46px">${f.n}</td><td><div class="bar"><i style="width:${100*f.n/max}%"></i></div></td></tr>`).join("") || `<tr><td class=mut>No leads yet</td></tr>`;
+      `<tr><td style="width:110px">${esc(f.status)}</td><td style="width:46px">${esc(f.n)}</td><td><div class="bar"><i style="width:${100*f.n/max}%"></i></div></td></tr>`).join("") || `<tr><td class=mut>No leads yet</td></tr>`;
 
     const t = await get("/api/dashboard/today");
     document.getElementById("today").innerHTML =
@@ -122,17 +123,17 @@ async function load(){
     const agents = await get("/api/dashboard/agents");
     document.getElementById("agents").innerHTML = agents.map(a=>`
       <div class="card agent">
-        <div class="top"><span class="emoji">${a.emoji}</span>
-          <div><div class="nm">${a.agent}</div><div class="rl">${a.role}</div></div>
-          <span class="state ${a.state}">${a.state==='working'?'● working':a.state==='ready'?'ready':'idle'}</span>
+        <div class="top"><span class="emoji">${esc(a.emoji)}</span>
+          <div><div class="nm">${esc(a.agent)}</div><div class="rl">${esc(a.role)}</div></div>
+          <span class="state ${esc(a.state)}">${a.state==='working'?'● working':a.state==='ready'?'ready':'idle'}</span>
         </div>
-        <div class="does">${a.does}</div>
+        <div class="does">${esc(a.does)}</div>
         <div class="stats">
-          <div><b>${a.runs}</b><span class="mut">runs</span></div>
-          <div><b class="ok">${a.ok}</b><span class="mut">ok</span></div>
-          <div><b class="er">${a.err}</b><span class="mut">err</span></div>
-          <div><b>${a.avg_ms||0}</b><span class="mut">avg ms</span></div>
-          <div style="margin-left:auto;text-align:right"><span class="mut">${a.last_label?a.last_label+' · ':''}${ago(a.last_at)} ago</span></div>
+          <div><b>${esc(a.runs)}</b><span class="mut">runs</span></div>
+          <div><b class="ok">${esc(a.ok)}</b><span class="mut">ok</span></div>
+          <div><b class="er">${esc(a.err)}</b><span class="mut">err</span></div>
+          <div><b>${esc(a.avg_ms||0)}</b><span class="mut">avg ms</span></div>
+          <div style="margin-left:auto;text-align:right"><span class="mut">${a.last_label?esc(a.last_label)+' · ':''}${ago(a.last_at)} ago</span></div>
         </div>
       </div>`).join("");
 
@@ -140,16 +141,17 @@ async function load(){
     document.getElementById("feed").innerHTML = feed.map(f=>{
       const c = f.status==='done'?'ok':f.status==='error'?'er':'rn';
       const ic = f.status==='done'?'✔':f.status==='error'?'✘':'▶';
-      return `<div class="row"><span class="ag">${f.agent}</span><span class="${c}">${ic}</span><span style="flex:1">${f.label||f.department}</span><span class="mut">${f.ms?f.ms+'ms · ':''}${ago(f.started_at)}</span></div>`;
+      return `<div class="row"><span class="ag">${esc(f.agent)}</span><span class="${c}">${ic}</span><span style="flex:1">${esc(f.label||f.department)}</span><span class="mut">${f.ms?esc(f.ms)+'ms · ':''}${ago(f.started_at)}</span></div>`;
     }).join("") || `<div class=mut>No activity yet — feed some leads.</div>`;
 
     const leadsResp = await get("/api/dashboard/leads?limit=12");
     const leadsArr = Array.isArray(leadsResp) ? leadsResp : (leadsResp.leads || []);
     document.querySelector("#leads tbody").innerHTML = leadsArr.map(l=>
-      `<tr><td>${l.id}</td><td>${l.full_name||'—'}</td><td>${l.company||'—'}</td><td>${l.status}</td><td>${l.score!=null?`<b class="g-${l.grade}">${l.score} ${l.grade||''}</b>`:'—'}</td><td class=mut>${l.source||'—'}</td></tr>`).join("") || `<tr><td colspan=6 class=mut>No leads yet</td></tr>`;
+      `<tr><td>${esc(l.id)}</td><td>${esc(l.full_name||'—')}</td><td>${esc(l.company||'—')}</td><td>${esc(l.status)}</td><td>${l.score!=null?`<b class="g-${esc(l.grade)}">${esc(l.score)} ${esc(l.grade||'')}</b>`:'—'}</td><td class=mut>${esc(l.source||'—')}</td></tr>`).join("") || `<tr><td colspan=6 class=mut>No leads yet</td></tr>`;
   } catch(e){ console.error(e); }
-  // mode from health
+  // mode from health + brand from /me
   fetch(API+"/health").then(r=>r.json()).then(h=>{ if(h.mode) document.getElementById("mode").textContent=h.mode; }).catch(()=>{});
+  fetch(API+"/me",{headers:H}).then(r=>r.json()).then(m=>{ if(m.brandId) document.getElementById("brand").textContent=m.brandId; }).catch(()=>{});
 }
 
 async function pullSheet(){

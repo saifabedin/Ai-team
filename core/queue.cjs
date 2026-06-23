@@ -12,6 +12,18 @@ const QUEUE_NAMES = [
   "proposal", // proposal/quote/contract generation
   "content", // content marketing
   "success", // client success / onboarding / upsell
+  // FML Health queues
+  "appointment", // booking, reminders, reschedule
+  "prep", // pre-appointment workflows
+  "aftercare", // post-visit care automation
+  "reputation", // review requests, responses
+  "referral", // referral tracking, incentives
+  // ECM Agency queues
+  "campaign", // campaign lifecycle
+  "social", // social media publishing
+  "ad-ops", // ad campaign management
+  "reporting", // report generation
+  "deliverables", // deliverable tracking
 ];
 
 const queues = {};

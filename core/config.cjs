@@ -13,7 +13,7 @@ const config = {
   },
   port: parseInt(process.env.PORT || "4100", 10),
   dashboardPort: parseInt(process.env.DASHBOARD_PORT || "4101", 10),
-  jwtSecret: process.env.JWT_SECRET || "change-me-in-prod",
+  jwtSecret: process.env.JWT_SECRET || "",
   defaultBrandId: process.env.DEFAULT_BRAND_ID || "fixmyleads",
   providerMode: process.env.PROVIDER_MODE || "mock", // 'mock' | 'live'
   gmail: {
@@ -40,17 +40,31 @@ const config = {
   notionToken: process.env.NOTION_TOKEN || "",
   googleSheetsWebhook: process.env.GOOGLE_SHEETS_WEBHOOK || "",
   bookingLink: process.env.BOOKING_LINK || "",   // Cal.com or any booking URL
+  // FML Health config
+  googleCalendarId: process.env.GOOGLE_CALENDAR_ID || "",
+  googleCalendarApiKey: process.env.GOOGLE_CALENDAR_API_KEY || "",
+  googlePlacesId: process.env.GOOGLE_PLACES_ID || "",
+  smsProvider: process.env.SMS_PROVIDER || "msg91",
+  smsApiKey: process.env.SMS_API_KEY || "",
+  smsApiSecret: process.env.SMS_API_SECRET || "",
+  smsSenderId: process.env.SMS_SENDER_ID || "FMLHLT",
+  corsOrigins: process.env.CORS_ORIGINS || "*",
+  timezone: process.env.TIMEZONE || "Asia/Kolkata",
+  clinicName: process.env.CLINIC_NAME || "",
 };
 
 config.isLive = config.providerMode === "live";
 
-// Warn loudly if running with the default JWT secret — never allow in live mode.
-if (config.jwtSecret === "change-me-in-prod") {
+// JWT secret required in all modes — prevents accidental insecure deployments.
+if (!config.jwtSecret) {
   if (config.isLive) {
-    throw new Error("JWT_SECRET must be set to a 64-char random hex string in live mode.");
+    throw new Error("JWT_SECRET must be set in live mode.");
   }
   // eslint-disable-next-line no-console
-  console.warn("[security] WARNING: JWT_SECRET is using the default value. Set it before going live.");
+  console.warn("[security] WARNING: JWT_SECRET is not set. Using insecure dev fallback.");
+  // Dev-only fallback so auth doesn't crash — NEVER use in production
+  config.jwtSecret = "dev-only-not-for-production";
+  config._insecureJwt = true; // Flag for middleware to add warning header
 }
 
 module.exports = config;

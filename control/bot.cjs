@@ -20,8 +20,11 @@ const proposal = require("../departments/proposal/service.cjs");
 const TOKEN = config.telegram.token;
 const BRAND = config.defaultBrandId;
 const API = TOKEN ? `https://api.telegram.org/bot${TOKEN}` : null;
-const allowed = (id) =>
-  config.telegram.allowedUserIds.length === 0 || config.telegram.allowedUserIds.includes(String(id));
+const allowed = (id) => {
+  // If no allowlist configured, deny by default (don't allow everyone)
+  if (config.telegram.allowedUserIds.length === 0) return false;
+  return config.telegram.allowedUserIds.includes(String(id));
+};
 
 async function send(chatId, text) {
   await axios.post(`${API}/sendMessage`, { chat_id: chatId, text, parse_mode: "Markdown" }).catch((e) =>

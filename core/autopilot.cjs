@@ -6,12 +6,17 @@
 //   2. score any 'enriched' leads
 //   3. enroll fresh A/B-grade leads into the default sequence
 //   4. advance any enrollment whose next step is due (outreach send)
+//   5. FML Health: process appointment reminders, aftercare follow-ups
 // Free + safe in PROVIDER_MODE=mock (sends are simulated). Multi-tenant by brand.
 const config = require("./config.cjs");
 const db = require("./db.cjs");
 const log = require("./logger.cjs").make("autopilot");
 const leadIntel = require("../departments/lead-intel/service.cjs");
 const sdr = require("../departments/sdr/service.cjs");
+const reminders = require("../departments/appointment/reminders.cjs");
+const aftercare = require("../departments/aftercare/service.cjs");
+const reputation = require("../departments/reputation/service.cjs");
+const prep = require("../departments/prep/service.cjs");
 
 const BRAND = config.defaultBrandId;
 const INTERVAL_MS = parseInt(process.env.AUTOPILOT_INTERVAL_MS || "60000", 10); // 60s
@@ -74,7 +79,6 @@ async function step(brandId) {
       where l.brand_id=$1
         and l.status in ('contacted','engaged')
         and l.updated_at < now() - interval '30 days'
-        and l.status != 'lost'
         and e.id is null
       order by l.updated_at limit $2`,
     [brandId, BATCH]);
@@ -85,6 +89,50 @@ async function step(brandId) {
       out.reengaged++;
     } catch (e) { log.warn("reengage", e.message); }
   }
+
+  return out;
+}
+
+// FML Health autopilot steps
+async function fmlStep(brandId) {
+  const out = { reminders: 0, aftercare: 0, reviews: 0, prep: 0 };
+
+  // 6. Process appointment reminders (24h, 2h, 30min before)
+  try {
+    const reminderResults = await reminders.processReminders(brandId);
+    out.reminders = reminderResults.filter(r => r.status === "sent").length;
+  } catch (e) { log.warn("fml:reminders", e.message); }
+
+  // 7. Process aftercare follow-ups
+  try {
+    const aftercareResults = await aftercare.processFollowUps(brandId);
+    out.aftercare = aftercareResults.filter(r => r.status === "sent").length;
+  } catch (e) { log.warn("fml:aftercare", e.message); }
+
+  // 8. Auto-generate prep for upcoming appointments (next 24h)
+  try {
+    const prepResults = await prep.autoPrep(brandId);
+    out.prep = prepResults.filter(r => r.status === "sent").length;
+  } catch (e) { log.warn("fml:prep", e.message); }
+
+  // 9. Auto-request reviews for completed appointments (last 24h)
+  try {
+    const completedAppts = await db.many(
+      `select a.id from fmlh_appointments a
+       left join fmlh_reviews r on r.appointment_id = a.id
+       where a.brand_id=$1 and a.status='completed'
+       and a.completed_at >= now() - interval '24 hours'
+       and r.id is null
+       order by a.completed_at desc limit $2`,
+      [brandId, BATCH]
+    );
+    for (const appt of completedAppts) {
+      try {
+        await reputation.requestReview(brandId, appt.id);
+        out.reviews++;
+      } catch (e) { log.warn("fml:review", e.message); }
+    }
+  } catch (e) { log.warn("fml:reviews", e.message); }
 
   return out;
 }
@@ -101,6 +149,11 @@ async function tick() {
         const touched = r.sheet + r.enriched + r.scored + r.enrolled + r.outreach + r.reengaged;
         if (touched) log.info(`cycle ${cycle} brand=${brand_id}:`, r);
         else log.debug(`cycle ${cycle} brand=${brand_id}: idle`);
+
+        // FML Health autopilot (reminders, aftercare, reviews)
+        const fml = await fmlStep(brand_id);
+        const fmlTouched = fml.reminders + fml.aftercare + fml.reviews + fml.prep;
+        if (fmlTouched) log.info(`cycle ${cycle} brand=${brand_id} fml:`, fml);
       } catch (e) {
         log.error(`cycle failed for brand=${brand_id}`, e.message);
       }

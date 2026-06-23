@@ -14,6 +14,11 @@ async function attachUser(req, res, next) {
   const brandId = req.header("x-brand-id") || config.defaultBrandId;
   req.brandId = brandId;
 
+  // Warn when using insecure dev JWT
+  if (config._insecureJwt) {
+    res.setHeader("X-Security-Warning", "INSECURE_DEV_JWT: Set JWT_SECRET for production");
+  }
+
   const authHeader = req.header("authorization") || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
@@ -22,7 +27,10 @@ async function attachUser(req, res, next) {
     if (config.isLive || process.env.NODE_ENV === "production") {
       return res.status(401).json({ error: "unauthorized", detail: "Bearer token required" });
     }
-    // Dev convenience: unauthenticated requests get owner rights locally.
+    // Dev convenience: only allow unauthenticated when DEV_AUTH_ALLOW is explicitly set
+    if (process.env.DEV_AUTH_ALLOW !== "1") {
+      return res.status(401).json({ error: "unauthorized", detail: "Bearer token required. Set DEV_AUTH_ALLOW=1 for dev bypass." });
+    }
     log.warn("dev auth bypass active — set PROVIDER_MODE=live or NODE_ENV=production to require tokens");
     req.user = DEV_USER;
     return next();
@@ -40,10 +48,15 @@ async function attachUser(req, res, next) {
       `select id, email, name, role from ait_users where brand_id=$1 and email=$2`,
       [payload.brandId || brandId, payload.email]
     );
-    req.user = user || { id: null, email: payload.email, role: "viewer" };
+    if (!user) {
+      // JWT valid but user no longer in DB — reject
+      return res.status(401).json({ error: "unauthorized", detail: "User not found" });
+    }
+    req.user = user;
     req.brandId = payload.brandId || brandId;
   } catch {
-    req.user = { id: null, email: payload.email, role: payload.role || "viewer" };
+    // DB lookup failed — reject instead of proceeding with phantom user
+    return res.status(401).json({ error: "unauthorized", detail: "User lookup failed" });
   }
 
   next();

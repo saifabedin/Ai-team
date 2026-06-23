@@ -55,4 +55,4 @@ async function tx(fn) {
   }
 }
 
-module.exports = { pool, query, one, many, tx };
+module.exports = { pool, query, one, oneOrNone: one, many, tx };

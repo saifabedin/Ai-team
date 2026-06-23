@@ -59,33 +59,34 @@ router.post("/register", registerLimiter, async (req, res) => {
     return res.status(400).json({ error: "bad_request", detail: "That brand name is reserved" });
   }
 
-  // Find a unique brand_id (slug, slug-2, slug-3 ...)
-  let brandId = slug;
-  let suffix = 2;
-  while (true) {
-    const existing = await db.one(`select id from ait_brands where brand_id=$1`, [brandId]);
-    if (!existing) break;
-    brandId = `${slug}-${suffix++}`;
-    if (suffix > 99) return res.status(500).json({ error: "internal", detail: "Could not generate unique brand_id" });
-  }
-
   // Check email not already used in this brand (shouldn't matter since brand is new, but guard it)
   const passwordHash = await bcrypt.hash(password, 10);
+  let createdBrandId = null;
 
   try {
     await db.tx(async (tx) => {
+      // Find a unique brand_id INSIDE transaction to prevent race condition
+      let finalBrandId = slug;
+      let suffix = 2;
+      while (true) {
+        const existing = await tx.query(`select id from ait_brands where brand_id=$1 for update`, [finalBrandId]);
+        if (existing.rows.length === 0) break;
+        finalBrandId = `${slug}-${suffix++}`;
+        if (suffix > 99) throw new Error("Could not generate unique brand_id");
+      }
+
       await tx.query(
         `insert into ait_brands (brand_id, name, owner_email) values ($1, $2, $3)`,
-        [brandId, company_name, email]
+        [finalBrandId, company_name, email]
       );
       await tx.query(
         `insert into ait_users (brand_id, email, name, role, api_key_hash) values ($1, $2, $3, 'owner', $4)`,
-        [brandId, email, name || email.split("@")[0], passwordHash]
+        [finalBrandId, email, name || email.split("@")[0], passwordHash]
       );
       // Seed a default outbound sequence so autopilot can start working immediately
       const seqRow = await tx.query(
         `insert into ait_sequences (brand_id, name, channel) values ($1, 'Default Outbound', 'email') returning id`,
-        [brandId]
+        [finalBrandId]
       );
       const seqId = seqRow.rows[0].id;
       const steps = [
@@ -101,6 +102,7 @@ router.post("/register", registerLimiter, async (req, res) => {
           [seqId, no, delay, ch, tmpl]
         );
       }
+      createdBrandId = finalBrandId;
     });
   } catch (e) {
     if (e.code === "23505") {
@@ -110,11 +112,11 @@ router.post("/register", registerLimiter, async (req, res) => {
     return res.status(500).json({ error: "internal", detail: "Registration failed" });
   }
 
-  log.info(`new brand registered: brand_id=${brandId} owner=${email}`);
+  log.info(`new brand registered: brand_id=${createdBrandId} owner=${email}`);
   return res.status(201).json({
-    brand_id: brandId,
+    brand_id: createdBrandId,
     email,
-    message: `Account created. Login: POST /auth/token with { email, api_key: "<your password>", brand_id: "${brandId}" }`,
+    message: `Account created. Login: POST /auth/token with { email, api_key: "<your password>", brand_id: "${createdBrandId}" }`,
   });
 });
 

@@ -6,6 +6,9 @@ const rbac = require("../../core/rbac.cjs");
 const db = require("../../core/db.cjs");
 const svc = require("./service.cjs");
 
+// Allowed directory for PDF files — prevents path traversal attacks
+const PDF_BASE_DIR = path.resolve(__dirname, "../../uploads/proposals");
+
 router.get("/", rbac.require("proposal:read"), async (req, res, next) => {
   try {
     const limit = +req.query.limit || 50;
@@ -35,10 +38,17 @@ router.get("/:id/pdf", rbac.require("proposal:read"), async (req, res, next) => 
     );
     if (!row) return res.status(404).json({ error: "proposal not found" });
     if (!row.pdf_path) return res.status(404).json({ error: "PDF not yet generated" });
-    if (!fs.existsSync(row.pdf_path)) return res.status(404).json({ error: "PDF file not found on disk" });
+    // Validate path is within allowed directory to prevent path traversal attacks
+    const resolvedPath = path.resolve(row.pdf_path);
+    if (!resolvedPath.startsWith(PDF_BASE_DIR)) {
+      return res.status(403).json({ error: "forbidden", detail: "Path outside allowed directory" });
+    }
+    if (!fs.existsSync(resolvedPath)) return res.status(404).json({ error: "PDF file not found on disk" });
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${row.title || "proposal"}.pdf"`);
-    fs.createReadStream(row.pdf_path).pipe(res);
+    // Sanitize title to prevent header injection (strip newlines and quotes)
+    const safeTitle = (row.title || "proposal").replace(/[\n\r"\\]/g, "_").slice(0, 100);
+    res.setHeader("Content-Disposition", `inline; filename="${safeTitle}.pdf"`);
+    fs.createReadStream(resolvedPath).pipe(res);
   } catch (e) { next(e); }
 });
 

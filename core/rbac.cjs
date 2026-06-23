@@ -11,10 +11,41 @@ const ROLES = {
     "success:*",
     "dashboard:read",
     "audit:read",
+    // FML Health
+    "coordinator:*",
+    "appointment:*",
+    "prep:*",
+    "aftercare:*",
+    "reputation:*",
+    "referral:*",
+    // ECM Agency
+    "campaign:*",
+    "social:*",
+    "ad-ops:*",
+    "reporting:*",
+    "white-label:*",
+    "calendar:*",
+    "deliverables:*",
+    "client-health:*",
   ],
   sales: ["lead-intel:read", "sdr:*", "voice:*", "proposal:*", "dashboard:read"],
-  marketing: ["content:*", "lead-intel:read", "dashboard:read"],
-  cs: ["success:*", "dashboard:read"],
+  marketing: ["content:*", "lead-intel:read", "dashboard:read", "campaign:*", "social:*", "ad-ops:*", "calendar:*", "deliverables:*"],
+  cs: ["success:*", "dashboard:read", "client-health:*", "reporting:*"],
+  // Healthcare roles
+  doctor: [
+    "coordinator:read", "appointment:read", "appointment:write",
+    "aftercare:read", "aftercare:write", "dashboard:read",
+  ],
+  receptionist: [
+    "coordinator:*", "appointment:*", "prep:*",
+    "reputation:read", "referral:read", "dashboard:read",
+  ],
+  // Agency roles
+  "account-manager": [
+    "campaign:*", "social:*", "reporting:*", "calendar:*",
+    "deliverables:*", "client-health:*", "dashboard:read",
+  ],
+  "media-buyer": ["ad-ops:*", "campaign:read", "dashboard:read"],
   viewer: ["dashboard:read", "lead-intel:read"],
 };
 

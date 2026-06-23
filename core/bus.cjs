@@ -7,6 +7,9 @@ const log = require("./logger.cjs").make("bus");
 
 const CHANNEL = (brandId) => `aiteam:bus:${brandId}`;
 
+// Track subscriptions for cleanup
+const subscriptions = new Map();
+
 /** publish a message from one agent to another (or broadcast). */
 async function publish(msg) {
   const m = {
@@ -46,7 +49,33 @@ function subscribe(brandId, handler) {
       log.warn("bad bus message", e.message);
     }
   });
+  // Track for cleanup
+  if (!subscriptions.has(brandId)) subscriptions.set(brandId, []);
+  subscriptions.get(brandId).push(sub);
   return sub;
 }
 
-module.exports = { publish, subscribe };
+/** unsubscribe all connections for a brand (call on shutdown). */
+function unsubscribe(brandId) {
+  const subs = subscriptions.get(brandId) || [];
+  for (const sub of subs) {
+    try { sub.disconnect(); } catch {}
+  }
+  subscriptions.delete(brandId);
+}
+
+/** cleanup all subscriptions (call on process exit). */
+function cleanupAll() {
+  for (const [brandId, subs] of subscriptions) {
+    for (const sub of subs) {
+      try { sub.disconnect(); } catch {}
+    }
+  }
+  subscriptions.clear();
+}
+
+// Graceful shutdown
+process.on("SIGTERM", cleanupAll);
+process.on("SIGINT", cleanupAll);
+
+module.exports = { publish, subscribe, unsubscribe, cleanupAll };

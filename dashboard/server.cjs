@@ -18,6 +18,15 @@ app.use("/api/dashboard", require("./routes.cjs"));
 app.use("/api/lead-intel", require("../departments/lead-intel/routes.cjs"));
 app.get("/health", (_q, r) => r.json({ ok: true, service: "ai-team-dashboard" }));
 
+// 404 handler for unmatched routes
+app.use((req, res) => res.status(404).json({ error: "not_found", path: req.path }));
+
+// Error handler
+app.use((err, _req, res, _next) => {
+  log.error("unhandled", err.message);
+  res.status(500).json({ error: "internal", message: "An internal error occurred" });
+});
+
 if (require.main === module) {
   app.listen(config.dashboardPort, () => log.info(`dashboard up on :${config.dashboardPort}`));
 }

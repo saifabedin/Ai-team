@@ -23,8 +23,7 @@ const channels = {
       await recordMessage(brandId, leadId, "email", { to, subject, body }, "sent", "mock");
       return { ok: true, provider: "mock" };
     }
-    // TODO(live): use nodemailer with Gmail app password (config.gmail).
-    // Kept as a single integration point; install nodemailer when going live.
+    // Live: Gmail SMTP via nodemailer
     const nodemailer = require("nodemailer");
     const tx = nodemailer.createTransport({
       service: "gmail",

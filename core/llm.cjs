@@ -97,7 +97,9 @@ async function json(system, user, opts = {}) {
     )
   );
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Response is not a JSON object");
+    return parsed;
   } catch {
     const fixed = await chat(
       [
@@ -106,14 +108,17 @@ async function json(system, user, opts = {}) {
       ],
       { json: true, temperature: 0 }
     );
-    return JSON.parse(stripFences(fixed));
+    const result = JSON.parse(stripFences(fixed));
+    if (!result || typeof result !== "object") throw new Error("LLM returned non-object JSON");
+    return result;
   }
 }
 
 function stripFences(s) {
+  if (!s) return "{}";
   const m = s.match(/\{[\s\S]*\}/);
   if (m) return m[0];
-  return s.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+  return s.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim() || "{}";
 }
 
 module.exports = { chat, complete, json };

@@ -7,6 +7,7 @@ const sources = require("./sources.cjs");
 const { enrichLead } = require("./enrich.cjs");
 const sheet = require("./sheet.cjs");
 const db = require("../../core/db.cjs");
+const log = require("../../core/logger.cjs").make("lead-intel");
 
 const agent = new LeadIntelAgent();
 
@@ -35,7 +36,8 @@ async function source(brandId, { source: src = "gmaps", query = "", url, limit =
     });
     created.push(lead);
     // pipeline: enqueue enrich+score (workers pick up); also runnable inline.
-    await enqueue("enrich", "enrich-lead", { brandId, leadId: lead.id }).catch(() => {});
+    await enqueue("enrich", "enrich-lead", { brandId, leadId: lead.id })
+      .catch(e => log.error(`Failed to enqueue enrich for lead #${lead.id}: ${e.message}`));
   }
   return { sourced: created.length, leads: created };
 }
@@ -54,7 +56,8 @@ async function enrich(brandId, leadId) {
      where brand_id=$1 and id=$2`,
     [brandId, leadId, e.email || null, e.phone || null]
   );
-  await enqueue("score", "score-lead", { brandId, leadId }).catch(() => {});
+  await enqueue("score", "score-lead", { brandId, leadId })
+    .catch(e => log.error(`Failed to enqueue score for lead #${leadId}: ${e.message}`));
   return { leadId, email: e.email, phone: e.phone, guessed: !!e.emailGuessed };
 }
 
@@ -125,7 +128,8 @@ async function ingest(brandId, rows = [], { src = "sheet", inline = false } = {}
     const lead = await ingestOne(brandId, r, src);
     created.push(lead);
     if (inline) { await enrich(brandId, lead.id); await score(brandId, lead.id); }
-    else await enqueue("enrich", "enrich-lead", { brandId, leadId: lead.id }).catch(() => {});
+    else await enqueue("enrich", "enrich-lead", { brandId, leadId: lead.id })
+      .catch(e => log.error(`Failed to enqueue enrich for lead #${lead.id}: ${e.message}`));
   }
   return { ingested: created.length, leadIds: created.map((l) => l.id) };
 }
@@ -142,7 +146,8 @@ async function pullSheet(brandId, { url, src = "sheet", inline = false, limit = 
     const lead = await ingestOne(brandId, r, src);
     created.push(lead);
     if (inline) { await enrich(brandId, lead.id); await score(brandId, lead.id); }
-    else await enqueue("enrich", "enrich-lead", { brandId, leadId: lead.id }).catch(() => {});
+    else await enqueue("enrich", "enrich-lead", { brandId, leadId: lead.id })
+      .catch(e => log.error(`Failed to enqueue enrich for lead #${lead.id}: ${e.message}`));
   }
   return { pulled: rows.length, ingested: created.length, leadIds: created.map((l) => l.id) };
 }
