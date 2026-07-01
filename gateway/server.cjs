@@ -20,6 +20,7 @@ app.use(auditWrites);
 
 // public auth routes (no JWT required, rate-limited inside)
 app.use("/auth", require("./auth.cjs"));
+app.use("/auth/facebook", require("./routes-facebook.cjs"));
 
 // webhooks (no JWT required, external services post here)
 app.use("/webhook/whatsapp", require("./webhook-whatsapp.cjs"));

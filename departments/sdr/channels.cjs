@@ -6,6 +6,17 @@ const config = require("../../core/config.cjs");
 const db = require("../../core/db.cjs");
 const log = require("../../core/logger.cjs").make("channels");
 
+// Lazy-load sheets-api to avoid circular deps
+let sheetsApi = null;
+function getSheetsApi() {
+  if (!sheetsApi) {
+    try { sheetsApi = require("../lead-intel/sheets-api.cjs"); } catch (e) { /* optional */ }
+  }
+  return sheetsApi;
+}
+
+const SHEET_URL = process.env.AUTOPILOT_SHEET_URL || "";
+
 async function recordMessage(brandId, leadId, channel, payload, status, provider) {
   return db.one(
     `insert into ait_messages (brand_id, lead_id, channel, direction, to_addr, subject, body, status, provider, meta)
@@ -13,6 +24,29 @@ async function recordMessage(brandId, leadId, channel, payload, status, provider
     [brandId, leadId, channel, payload.to || null, payload.subject || null,
      payload.body || null, status, provider, payload.meta || {}]
   );
+}
+
+// Update Google Sheet Status column after successful outreach
+async function updateSheetStatus(brandId, leadId, channel) {
+  if (!SHEET_URL) return;
+  const api = getSheetsApi();
+  if (!api) return;
+  try {
+    const lead = await db.oneOrNone(
+      `select email, phone from ait_leads where id=$1 and brand_id=$2`, [leadId, brandId]
+    );
+    if (!lead) return;
+    // Count messages to determine status (Sent 1, Sent 2, Sent 3)
+    const msgCount = await db.one(
+      `select count(*)::int as cnt from ait_messages
+       where lead_id=$1 and brand_id=$2 and direction='out' and status='sent'`,
+      [leadId, brandId]
+    );
+    const status = `Sent ${msgCount.cnt}`;
+    await api.updateStatus(SHEET_URL, { email: lead.email, phone: lead.phone, status });
+  } catch (e) {
+    log.warn("sheet status update failed", e.message);
+  }
 }
 
 const channels = {
@@ -31,6 +65,7 @@ const channels = {
     });
     await tx.sendMail({ from: config.gmail.user, to, subject, text: body });
     await recordMessage(brandId, leadId, "email", { to, subject, body }, "sent", "gmail");
+    await updateSheetStatus(brandId, leadId, "email");
     return { ok: true, provider: "gmail" };
   },
 
@@ -49,6 +84,7 @@ const channels = {
       { headers: { Authorization: `Bearer ${config.whatsapp.token}` }, timeout: 20000 }
     );
     await recordMessage(brandId, leadId, "whatsapp", { to, body }, "sent", "wpp");
+    await updateSheetStatus(brandId, leadId, "whatsapp");
     return { ok: true, provider: "wpp" };
   },
 

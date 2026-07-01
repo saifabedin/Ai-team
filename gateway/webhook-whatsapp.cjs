@@ -2,9 +2,9 @@
 // Inbound WhatsApp webhook handler — receives messages from Baileys/WPPConnect
 // and routes them to the appropriate department (patient-coordinator for FML Health).
 const express = require("express");
-const config = require("../../core/config.cjs");
-const log = require("../../core/logger.cjs").make("webhook:whatsapp");
-const db = require("../../core/db.cjs");
+const config = require("../core/config.cjs");
+const log = require("../core/logger.cjs").make("webhook:whatsapp");
+const db = require("../core/db.cjs");
 
 const router = express.Router();
 

@@ -24,6 +24,11 @@ const QUEUE_NAMES = [
   "ad-ops", // ad campaign management
   "reporting", // report generation
   "deliverables", // deliverable tracking
+  // ECM Engine-backed queues
+  "social-publish", // publish social posts via ECM Engine 5
+  "social-publish-all", // batch publish all due social posts
+  "tracking", // campaign performance tracking via ECM Engine 7
+  "optimization", // campaign optimization via ECM Engine 8
 ];
 
 const queues = {};

@@ -7,6 +7,7 @@
 //   3. enroll fresh A/B-grade leads into the default sequence
 //   4. advance any enrollment whose next step is due (outreach send)
 //   5. FML Health: process appointment reminders, aftercare follow-ups
+//   6. Social: generate content via ECM engines (every 4 cycles)
 // Free + safe in PROVIDER_MODE=mock (sends are simulated). Multi-tenant by brand.
 const config = require("./config.cjs");
 const db = require("./db.cjs");
@@ -17,6 +18,7 @@ const reminders = require("../departments/appointment/reminders.cjs");
 const aftercare = require("../departments/aftercare/service.cjs");
 const reputation = require("../departments/reputation/service.cjs");
 const prep = require("../departments/prep/service.cjs");
+const ecmBridge = require("./ecm-bridge.cjs");
 
 const BRAND = config.defaultBrandId;
 const INTERVAL_MS = parseInt(process.env.AUTOPILOT_INTERVAL_MS || "60000", 10); // 60s
@@ -137,6 +139,86 @@ async function fmlStep(brandId) {
   return out;
 }
 
+// Social content generation using ECM engines (runs every 4 cycles)
+const SOCIAL_EVERY = parseInt(process.env.AUTOPILOT_SOCIAL_EVERY_CYCLES || "4", 10);
+
+async function socialStep(brandId) {
+  const out = { generated: 0, scheduled: 0 };
+  if (cycle % SOCIAL_EVERY !== 0) return out;
+
+  try {
+    // Check if we already have enough upcoming posts
+    const upcoming = await db.one(
+      `select count(*)::int as cnt from ait_social_posts
+       where brand_id=$1 and status in ('draft','scheduled')
+       and scheduled_at >= now()`,
+      [brandId]
+    );
+    // If 4+ posts queued, skip generation
+    if (upcoming.cnt >= 4) return out;
+
+    // Run ECM engines: research -> content -> image
+    const result = await ecmBridge.generateSocialContent({
+      businessName: "FixMyLeads",
+      niche: "Digital Marketing SaaS",
+      targetAudience: "Business owners, HR teams, startups",
+      location: "India",
+      goal: "Generate leads and sales for FixMyLeads product",
+      platform: "Instagram",
+      brandId,
+    });
+
+    if (!result.success) {
+      log.warn("social content generation failed", result.error);
+      return out;
+    }
+
+    const { content, images } = result.data;
+    if (!content) return out;
+
+    // Store generated posts in database
+    const captions = content.captions || [];
+    const hooks = content.hooks || [];
+    const imageUrls = images?.images || [];
+
+    // Schedule posts: 4 per week, next 7 days
+    const now = new Date();
+    const postTimes = [
+      new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000),  // tomorrow
+      new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),  // day 3
+      new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000),  // day 5
+      new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),  // day 7
+    ];
+
+    for (let i = 0; i < Math.min(captions.length, 4); i++) {
+      const caption = captions[i] || hooks[i] || "Check out FixMyLeads!";
+      const imageUrl = imageUrls[i % imageUrls.length] || null;
+      const scheduledAt = postTimes[i];
+
+      await db.query(
+        `insert into ait_social_posts
+         (brand_id, platform, post_type, caption, media_urls, hashtags, scheduled_at, status, meta)
+         values ($1, 'instagram', 'image', $2, $3, $4, $5, 'draft', $6)`,
+        [
+          brandId,
+          caption,
+          JSON.stringify(imageUrl ? [imageUrl] : []),
+          JSON.stringify(["#fixmyleads", "#leads", "#marketing", "#business"]),
+          scheduledAt.toISOString(),
+          JSON.stringify({ generatedBy: "ecm-engines", hooks: hooks[i] || null }),
+        ]
+      );
+      out.scheduled++;
+    }
+
+    out.generated = captions.length;
+    if (out.scheduled) log.info(`social: generated ${out.generated} posts, scheduled ${out.scheduled}`);
+  } catch (e) {
+    log.warn("social step failed", e.message);
+  }
+  return out;
+}
+
 async function tick() {
   if (running) return;
   running = true;
@@ -154,6 +236,10 @@ async function tick() {
         const fml = await fmlStep(brand_id);
         const fmlTouched = fml.reminders + fml.aftercare + fml.reviews + fml.prep;
         if (fmlTouched) log.info(`cycle ${cycle} brand=${brand_id} fml:`, fml);
+
+        // Social content generation (ECM engines)
+        const social = await socialStep(brand_id);
+        if (social.scheduled) log.info(`cycle ${cycle} brand=${brand_id} social:`, social);
       } catch (e) {
         log.error(`cycle failed for brand=${brand_id}`, e.message);
       }
