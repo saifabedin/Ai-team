@@ -1,0 +1,4 @@
+{
+  "model": "nvidia/step-1-flash",
+  "$schema": "https://opencode.ai/config.json"
+}
